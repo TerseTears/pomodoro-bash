@@ -7,6 +7,7 @@
 usage_help() {
     cat <<END
     usage: Pomodoro [-options]
+
     -t, --tag
     whether to supply focus tag, defaults to "Other"
     -d, --duration
@@ -14,9 +15,12 @@ usage_help() {
     -b, --break
     duration of break, defaults to 5 minutes
     -f, --file
-    file path of focus histories, defaults to 
-    -i, interface
-    interface to use, "terminal", "gnome", or "kde", defaults to kde
+    file path of focus histories, defaults to \$XDG_DATA_HOME
+    -i, --interface
+    interface to use, "terminal", "yad", "zenity" or "kde", defaults to kde
+
+    use p to toggle pause, q to quit at current time, i to increase seconds and
+    any other input to skip seconds
 END
 }
 
@@ -24,44 +28,34 @@ END
 tag="Other"
 duration=25
 break=5
+
 if [[ ! -z "$XDG_DATA_HOME" ]]; then
     filedir=""$XDG_DATA_HOME"/pomodoro-bash"
 else
     filedir=""$HOME"/.local/share/pomodoro-bash"
 fi
 
+if [[ -x "$(command -v kdialog)" ]]; then
+    interface="kdialog"
+elif [[ -x "$(command -v yad)" ]]; then
+    interface="yad"
+elif [[ -x "$(command -v zenity)" ]]; then
+    interface="zenity"
+else
+    interface="terminal"
+fi
+
+# read supplied arguments
 while true; do 
     case "$1" in
-        -h|--help)
-            usage_help
-            exit
-            ;;
-        -t|--tag)
-            tag=$2
-            shift
-            ;;
-        -d|--duration)
-            duration=$2
-            shift
-            ;;
-        -b|--break)
-            break=$2
-            shift
-            ;;
-        -f|--file)
-            filedir=$2
-            shift
-            ;;
-        -i|--interface)
-            interface=$2
-            shift
-            ;;
-        --) # end of options delimiter
-            shift
-            break
-            ;;
-        *) # default case
-            break
+        -h|--help) usage_help; exit;;
+        -t|--tag) tag=$2; shift;;
+        -d|--duration) duration=$2; shift;;
+        -b|--break) break=$2; shift;;
+        -f|--file) filedir=$2; shift;;
+        -i|--interface) interface=$2; shift;;
+        --) shift; break;;
+        *) break
     esac
     shift
 done
@@ -75,21 +69,15 @@ pomodoro() {
     while [[ "$secondspassed" -lt "$((secondstorun+1))" ]]; do
         read -sn 1 -t 1 key
         case "$key" in
-            p)
-                if [[ "$running" == true ]]; then
+            p) if [[ "$running" == true ]]; then
                     running=false
                 else 
                     running=true
-                fi
-                ;;
-            q)
-                break
-                ;;
-            i)
-                if [[ "$running" == true ]]; then
+                fi;;
+            q) break;;
+            i) if [[ "$running" == true ]]; then
                 secondstorun="$((secondstorun+1))"
-                fi
-                ;;
+                fi;;
         esac
         if [[ "$running" == true ]]; then
             if [[ ! -z "$key" ]]; then
@@ -104,8 +92,47 @@ pomodoro() {
     done
     if [[ ! "$isbreak" == "-b" ]]; then
         elapsed="$(( (secondstorun-T)/60 ))"
+        mkdir -p "$filedir"
         echo "`date +%Y-%m-%d-%H-%M`,"$elapsed","$tag"" >> ""$filedir"/Pomodoros"
     fi
+}
+
+# interfaces setup
+## terminal
+terminal_break(){
+    read -sp "[Pomodoro Over. Take break now? (y/n)]?"$'\n' choice
+    case "$choice" in 
+        n|N ) false;;
+        * ) true;;
+    esac
+}
+terminal_continue(){
+    read -sp "[Break Over. Continue another pomodoro? (y/n)]?"$'\n' choice
+    case "$choice" in 
+        n|N ) false;;
+        * ) true;;
+    esac
+}
+## kde
+kdialog_break(){
+    kdialog --title "Pomodoro Over" --yesno "Take break now?"
+}
+kdialog_continue(){
+    kdialog --title "Break Over" --yesno "Continue another pomodoro?"
+}
+## yad
+yad_break(){
+    yad --title "Pomodoro Over" --text "Take break now?"
+}
+yad_continue(){
+    yad --title "Break Over" --text "Continue another pomodoro?"
+}
+## zenity
+zenity_break(){
+    zenity --title "Pomodoro Over" --question --text "Take break now?"
+}
+zenity_continue(){
+    zenity --title "Break Over" --question --text "Continue another pomodoro?"
 }
 
 # main code
@@ -116,14 +143,14 @@ while [[ "$count" -ge 0 ]]; do
     echo -ne "Focusing on "$tag"\n"
     pomodoro "$duration"
     echo -ne "\n"
-    kdialog --title "Pomodoro Over" --yesno "Take break now?" 2>/dev/null
+    eval ""$interface"_break"
     if [[ ! "$?" = 0 ]]; then
         exit 0 
     fi
     echo -ne "break time\n"
     pomodoro "$break" -b
     echo -ne "\n"
-    kdialog --title "Break Over" --yesno "Continue another pomodoro?" 2>/dev/null
+    eval ""$interface"_continue"
     if [[ ! "$?" = 0 ]]; then
         exit 0 
     fi
