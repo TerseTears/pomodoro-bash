@@ -71,6 +71,7 @@ pomodoro() {
     secondstorun="$(("$1"*60))"
     secondspassed=0
     running=true
+    isbreak="$2"
     while [[ "$secondspassed" -lt "$((secondstorun+1))" ]]; do
         read -sn 1 -t 1 key
         case "$key" in
@@ -101,8 +102,10 @@ pomodoro() {
             printf "\r%s:%s " "$M" "$S"
         fi
     done
-    elapsed="$(( (secondstorun-T)/60 +1 ))"
-    echo "`date +%Y-%m-%d-%H-%M`,"$elapsed","$tag"" >> ~/Sync/Notebook/Pomodoro.txt
+    if [[ ! "$isbreak" == "-b" ]]; then
+        elapsed="$(( (secondstorun-T)/60 ))"
+        echo "`date +%Y-%m-%d-%H-%M`,"$elapsed","$tag"" >> ""$filedir"/Pomodoros"
+    fi
 }
 
 # main code
@@ -118,7 +121,7 @@ while [[ "$count" -ge 0 ]]; do
         exit 0 
     fi
     echo -ne "break time\n"
-    pomodoro "$break"
+    pomodoro "$break" -b
     echo -ne "\n"
     kdialog --title "Break Over" --yesno "Continue another pomodoro?" 2>/dev/null
     if [[ ! "$?" = 0 ]]; then
