@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+# TODO among the fixes are general refactoring, producing help and commandline
+# options, allowing interactive mode i.e. letting one specify project and time
+# before start (useful for nvim floating buffer)
+
+usage_help() {
+    cat <<END
+    usage: Pomodoro [-options]
+    -t, --tag
+    whether to supply focus tag, defaults to "Other"
+    -d, --duration
+    duration of focus, defaults to 25 minutes
+    -b, --break
+    duration of break, defaults to 5 minutes
+    -f, --file
+    file path of focus histories, defaults to 
+    -i, interface
+    interface to use, "terminal", "gnome", or "kde", defaults to kde
+END
+}
+
+# default arguments
+tag="Other"
+duration=25
+break=5
+if [[ ! -z "$XDG_DATA_HOME" ]]; then
+    filedir=""$XDG_DATA_HOME"/pomodoro-bash"
+else
+    filedir=""$HOME"/.local/share/pomodoro-bash"
+fi
+
+while true; do 
+    case "$1" in
+        -h|--help)
+            usage_help
+            exit
+            ;;
+        -t|--tag)
+            tag=$2
+            shift
+            ;;
+        -d|--duration)
+            duration=$2
+            shift
+            ;;
+        -b|--break)
+            break=$2
+            shift
+            ;;
+        -f|--file)
+            filedir=$2
+            shift
+            ;;
+        -i|--interface)
+            interface=$2
+            shift
+            ;;
+        --) # end of options delimiter
+            shift
+            break
+            ;;
+        *) # default case
+            break
+    esac
+    shift
+done
+
+# main function
+pomodoro() {
+    secondstorun="$(("$1"*60))"
+    secondspassed=0
+    running=true
+    while [[ "$secondspassed" -lt "$((secondstorun+1))" ]]; do
+        read -sn 1 -t 1 key
+        case "$key" in
+            p)
+                if [[ "$running" == true ]]; then
+                    running=false
+                else 
+                    running=true
+                fi
+                ;;
+            q)
+                break
+                ;;
+            i)
+                if [[ "$running" == true ]]; then
+                secondstorun="$((secondstorun+1))"
+                fi
+                ;;
+        esac
+        if [[ "$running" == true ]]; then
+            if [[ ! -z "$key" ]]; then
+                secondstorun="$((secondstorun+1))"
+            fi
+            T="$((secondstorun-secondspassed))"
+            M="$((T/60))"
+            S="$((T%60))"
+            secondspassed="$((secondspassed+1))"
+            printf "\r%s:%s " "$M" "$S"
+        fi
+    done
+    elapsed="$(( (secondstorun-T)/60 +1 ))"
+    echo "`date +%Y-%m-%d-%H-%M`,"$elapsed","$tag"" >> ~/Sync/Notebook/Pomodoro.txt
+}
+
+# main code
+clear
+count=1
+while [[ "$count" -ge 0 ]]; do
+    echo -ne "Pomodoros: "$count"\n" 
+    echo -ne "Focusing on "$tag"\n"
+    pomodoro "$duration"
+    echo -ne "\n"
+    kdialog --title "Pomodoro Over" --yesno "Take break now?" 2>/dev/null
+    if [[ ! "$?" = 0 ]]; then
+        exit 0 
+    fi
+    echo -ne "break time\n"
+    pomodoro "$break"
+    echo -ne "\n"
+    kdialog --title "Break Over" --yesno "Continue another pomodoro?" 2>/dev/null
+    if [[ ! "$?" = 0 ]]; then
+        exit 0 
+    fi
+    count="$((count+1))"
+done
