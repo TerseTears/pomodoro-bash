@@ -17,7 +17,7 @@ usage_help() {
     -f, --file
     file path of focus histories, defaults to \$XDG_DATA_HOME
     -i, --interface
-    interface to use, "terminal", "yad", "zenity" or "kde", defaults to kde
+    interface to use, "terminal", "yad", "zenity" or "kdialog" (default)
 
     use p to toggle pause, q to quit at current time, i to increase seconds and
     any other input to skip seconds
@@ -87,33 +87,37 @@ pomodoro() {
             M="$((T/60))"
             S="$((T%60))"
             secondspassed="$((secondspassed+1))"
-            printf "\r%s:%s " "$M" "$S"
+            printf ""$(tput setaf 15; tput bold)"\r%s:%s " "$M" "$S"
         fi
     done
     if [[ ! "$isbreak" == "-b" ]]; then
         elapsed="$(( (secondstorun-T)/60 ))"
         mkdir -p "$filedir"
-        echo "`date +%Y-%m-%d-%H-%M`,"$elapsed","$tag"" >> ""$filedir"/Pomodoros"
+        echo ""$(date +%Y-%m-%d-%H-%M)","$elapsed","$tag"" >>\
+            ""$filedir"/Pomodoros"
     fi
 }
 
 # interfaces setup
 ## terminal
 terminal_break(){
-    read -sp "[Pomodoro Over. Take break now? (y/n)]?"$'\n' choice
+    tput bel
+    read -sp ""$(tput setaf 7)"\
+[Pomodoro Over. Take break now? (y/n)]"$'\n' choice
     case "$choice" in 
         n|N ) false;;
         * ) true;;
     esac
 }
 terminal_continue(){
-    read -sp "[Break Over. Continue another pomodoro? (y/n)]?"$'\n' choice
+    read -sp ""$(tput setaf 7)"\
+[Break Over. Continue another pomodoro? (y/n)]"$'\n' choice
     case "$choice" in 
         n|N ) false;;
         * ) true;;
     esac
 }
-## kde
+## kdialog
 kdialog_break(){
     kdialog --title "Pomodoro Over" --yesno "Take break now?"
 }
@@ -139,17 +143,24 @@ zenity_continue(){
 clear
 count=1
 while [[ "$count" -ge 0 ]]; do
-    echo -ne "Pomodoros: "$count"\n" 
-    echo -ne "Focusing on "$tag"\n"
+    ## main pomodoro run
+    echo -ne ""$(tput setaf 8)"Pomodoros:\
+ "$(tput setaf 10)""$count" "$(tput setaf 4)"("$(date "+%H:%M %m/%d")")\n" 
+    echo -ne ""$(tput setaf 14)"Focusing on "$(tput setaf 6)""$tag"\n"
+    tput sc
     pomodoro "$duration"
-    echo -ne "\n"
+    tput rc; tput el; tput sgr0
+
+    ## break run
     eval ""$interface"_break"
-    if [[ ! "$?" = 0 ]]; then
-        exit 0 
+    if [[ "$?" = 0 ]]; then
+        echo -ne ""$(tput setaf 3)"break time\n"
+        tput sc
+        pomodoro "$break" -b
+        tput rc; tput el; tput sgr0
     fi
-    echo -ne "break time\n"
-    pomodoro "$break" -b
-    echo -ne "\n"
+
+    ## asking for continuation
     eval ""$interface"_continue"
     if [[ ! "$?" = 0 ]]; then
         exit 0 
