@@ -29,10 +29,10 @@ tag="Other"
 duration=25
 break=5
 
-if [[ ! -z "$XDG_DATA_HOME" ]]; then
-    filedir=""$XDG_DATA_HOME"/pomodoro-bash"
+if [[ -n "$XDG_DATA_HOME" ]]; then
+    filedir="$XDG_DATA_HOME/pomodoro-bash"
 else
-    filedir=""$HOME"/.local/share/pomodoro-bash"
+    filedir="$HOME/.local/share/pomodoro-bash"
 fi
 
 if [[ -x "$(command -v kdialog)" ]]; then
@@ -80,21 +80,21 @@ pomodoro() {
                 fi;;
         esac
         if [[ "$running" == true ]]; then
-            if [[ ! -z "$key" ]]; then
+            if [[ -n "$key" ]]; then
                 secondstorun="$((secondstorun+1))"
             fi
             T="$((secondstorun-secondspassed))"
             M="$((T/60))"
             S="$((T%60))"
             secondspassed="$((secondspassed+1))"
-            printf ""$(tput setaf 15; tput bold)"\r%s:%s " "$M" "$S"
+            printf "$(tput setaf 15; tput bold)\r%s:%s " "$M" "$S"
         fi
     done
     if [[ ! "$isbreak" == "-b" ]]; then
         elapsed="$(( (secondstorun-T)/60 ))"
         mkdir -p "$filedir"
-        echo ""$(date +%Y-%m-%d-%H-%M)","$elapsed","$tag"" >>\
-            ""$filedir"/Pomodoros"
+        echo "$(date +%Y-%m-%d-%H-%M),$elapsed,$tag" >>\
+            "$filedir/Pomodoros"
     fi
 }
 
@@ -102,7 +102,7 @@ pomodoro() {
 ## terminal
 terminal_break(){
     tput bel
-    read -sp ""$(tput setaf 7)"\
+    read -sp "$(tput setaf 7)\
 [Pomodoro Over. Take break now? (y/n)]"$'\n' choice
     case "$choice" in 
         n|N ) false;;
@@ -110,7 +110,7 @@ terminal_break(){
     esac
 }
 terminal_continue(){
-    read -sp ""$(tput setaf 7)"\
+    read -sp "$(tput setaf 7)\
 [Break Over. Continue another pomodoro? (y/n)]"$'\n' choice
     case "$choice" in 
         n|N ) false;;
@@ -144,25 +144,23 @@ clear
 count=1
 while [[ "$count" -ge 0 ]]; do
     ## main pomodoro run
-    echo -ne ""$(tput setaf 8)"Pomodoros:\
- "$(tput setaf 10)""$count" "$(tput setaf 4)"("$(date "+%H:%M %m/%d")")\n" 
-    echo -ne ""$(tput setaf 14)"Focusing on "$(tput setaf 6)""$tag"\n"
+    echo -ne "$(tput setaf 8)Pomodoros:\
+ $(tput setaf 10)$count $(tput setaf 4)($(date "+%H:%M %m/%d"))\n" 
+    echo -ne "$(tput setaf 14)Focusing on $(tput setaf 6)$tag\n"
     tput sc
     pomodoro "$duration"
     tput rc; tput el; tput sgr0
 
     ## break run
-    eval ""$interface"_break"
-    if [[ "$?" = 0 ]]; then
-        echo -ne ""$(tput setaf 3)"break time\n"
+    if eval "${interface}_break"; then
+        echo -ne "$(tput setaf 3)break time\n"
         tput sc
         pomodoro "$break" -b
         tput rc; tput el; tput sgr0
     fi
 
     ## asking for continuation
-    eval ""$interface"_continue"
-    if [[ ! "$?" = 0 ]]; then
+    if ! eval "${interface}_continue"; then
         exit 0 
     fi
     count="$((count+1))"
