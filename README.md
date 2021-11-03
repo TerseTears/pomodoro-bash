@@ -1,6 +1,6 @@
 # :tomato: Pomodoro Timer in Bash
 
-A timer for managing pomodoros from terminal, with optional interfaces for `yad`, `zenity`, and `kdialog`.
+A simple timer for managing pomodoros from terminal, with optional interfaces for `yad`, `zenity`, and `kdialog`. Focus has simply been on getting the job done and ease of use while providing and recording some session details (so not being a highly accurate or feature-rich timer per se).
 
 # :film_strip: Screencast
 
@@ -44,3 +44,4 @@ chmod +x ~/Scripts/Pomodoro
 export PATH=$PATH:~/Scripts
 ```
 
+If you need defaults, such as for the path to save the log, simply use command `aliases`.
